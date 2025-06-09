@@ -1,18 +1,28 @@
 require('dotenv').config();
-const WebSocket = require('ws');
-const { WebSocket: DGSocket } = require('ws');
+const express = require('express');
 const http = require('http');
+const { WebSocket: DGSocket } = require('ws');
+const WebSocket = require('ws');
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const PORT = process.env.PORT || 3000;
 
-const server = http.createServer();
+// ✅ 初始化 express
+const app = express();
+app.use(express.json());
+
+// ✅ 提供一个基础 HTTP 路由（Render 用于端口探测）
+app.get('/', (req, res) => {
+  res.send('🎉 gaibang-backend 正在运行');
+});
+
+// ✅ 启动 HTTP + WS 服务
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (clientSocket) => {
   console.log('🧠 客户端已连接');
 
-  // 初始化 Deepgram 连接
   const dgSocket = new DGSocket('wss://api.deepgram.com/v1/listen', {
     headers: {
       Authorization: `Token ${DEEPGRAM_API_KEY}`,
@@ -22,7 +32,6 @@ wss.on('connection', (clientSocket) => {
   dgSocket.on('open', () => {
     console.log('🎯 Deepgram WebSocket 连接成功');
 
-    // 从客户端收到音频 → 转发给 Deepgram
     clientSocket.on('message', (audio) => {
       if (dgSocket.readyState === DGSocket.OPEN) {
         dgSocket.send(audio);
@@ -30,7 +39,6 @@ wss.on('connection', (clientSocket) => {
     });
   });
 
-  // Deepgram 返回识别结果 → 转发给客户端
   dgSocket.on('message', (msg) => {
     try {
       const data = JSON.parse(msg);
@@ -55,5 +63,5 @@ wss.on('connection', (clientSocket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 gaibang-backend 正在运行：ws://localhost:${PORT}`);
+  console.log(`🚀 gaibang-backend 正在运行：http://localhost:${PORT}`);
 });
